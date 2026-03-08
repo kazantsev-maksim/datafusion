@@ -17,13 +17,13 @@
 
 use arrow::array::{ArrayRef, AsArray, Int32Array};
 use arrow::datatypes::{DataType, Date32Type, Field, FieldRef};
+use chrono::Datelike;
 use datafusion::logical_expr::{ColumnarValue, Signature, Volatility};
 use datafusion_common::utils::take_function_args;
 use datafusion_common::{Result, ScalarValue, internal_err};
 use datafusion_expr::{ReturnFieldArgs, ScalarFunctionArgs, ScalarUDFImpl};
 use std::any::Any;
 use std::sync::Arc;
-use chrono::Datelike;
 
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct SparkQuarter {
