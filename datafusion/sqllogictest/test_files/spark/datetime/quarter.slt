@@ -21,6 +21,31 @@ SELECT quarter('2009-01-12'::DATE);
 1
 
 query I
-SELECT quarter(NULL);
+SELECT quarter('1970-01-01'::DATE);
+----
+1
+
+query I
+SELECT quarter('1870-01-01'::DATE);
+----
+1
+
+query I
+SELECT quarter('2011-04-21'::DATE);
+----
+2
+
+query I
+SELECT quarter('2024-08-14'::DATE);
+----
+3
+
+query I
+SELECT quarter('2016-12-12'::DATE);
+----
+4
+
+query I
+SELECT quarter(NULL::DATE);
 ----
 NULL
