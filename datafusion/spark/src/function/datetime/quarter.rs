@@ -23,6 +23,7 @@ use datafusion_common::{Result, ScalarValue, internal_err};
 use datafusion_expr::{ReturnFieldArgs, ScalarFunctionArgs, ScalarUDFImpl};
 use std::any::Any;
 use std::sync::Arc;
+use chrono::Datelike;
 
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct SparkQuarter {
@@ -105,6 +106,6 @@ impl ScalarUDFImpl for SparkQuarter {
 }
 
 fn spark_quarter(days: i32) -> Result<i32> {
-    let quarter = days / 90;
-    Ok(quarter)
+    let quarter = Date32Type::to_naive_date_opt(days).unwrap().quarter();
+    Ok(quarter as i32)
 }
