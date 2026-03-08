@@ -16,11 +16,11 @@
 # under the License.
 
 query I
-SELECT last_day('2009-01-12'::DATE);
+SELECT quarter('2009-01-12'::DATE);
 ----
 1
 
 query I
-SELECT last_day(NULL);
+SELECT quarter(NULL);
 ----
 NULL
