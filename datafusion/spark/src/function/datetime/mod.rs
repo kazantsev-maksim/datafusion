@@ -27,6 +27,7 @@ pub mod last_day;
 pub mod make_dt_interval;
 pub mod make_interval;
 pub mod next_day;
+pub mod quarter;
 pub mod time_trunc;
 pub mod to_utc_timestamp;
 pub mod trunc;
@@ -72,6 +73,7 @@ make_udf_function!(
     unix_seconds,
     unix::SparkUnixTimestamp::seconds
 );
+make_udf_function!(quarter::SparkQuarter, quarter);
 
 pub mod expr_fn {
     use datafusion_functions::export_functions;
@@ -179,6 +181,11 @@ pub mod expr_fn {
         "Returns the number of seconds since epoch (1970-01-01 00:00:00 UTC) for the given timestamp `ts`.",
         ts
     ));
+    export_functions!((
+        quarter,
+        "Returns the quarter of the year for date, in the range 1 to 4.",
+        arg1
+    ));
 }
 
 pub fn functions() -> Vec<Arc<ScalarUDF>> {
@@ -204,5 +211,6 @@ pub fn functions() -> Vec<Arc<ScalarUDF>> {
         unix_micros(),
         unix_millis(),
         unix_seconds(),
+        quarter(),
     ]
 }
