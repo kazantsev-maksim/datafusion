@@ -36,7 +36,7 @@ SELECT dayname('2026-03-08'::DATE);
 Sun
 
 query T
-SELECT dayname('1948-08-11'::DATE);
+SELECT dayname('1948-08-10'::DATE);
 ----
 Tue
 
