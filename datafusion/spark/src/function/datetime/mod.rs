@@ -21,6 +21,7 @@ pub mod date_diff;
 pub mod date_part;
 pub mod date_sub;
 pub mod date_trunc;
+pub mod dayname;
 pub mod extract;
 pub mod from_utc_timestamp;
 pub mod last_day;
@@ -72,6 +73,7 @@ make_udf_function!(
     unix_seconds,
     unix::SparkUnixTimestamp::seconds
 );
+make_udf_function!(dayname::SparkDayName, dayname);
 
 pub mod expr_fn {
     use datafusion_functions::export_functions;
@@ -179,6 +181,11 @@ pub mod expr_fn {
         "Returns the number of seconds since epoch (1970-01-01 00:00:00 UTC) for the given timestamp `ts`.",
         ts
     ));
+    export_functions!((
+        dayname,
+        "Returns the three-letter abbreviated day name from the given date.",
+        arg1
+    ));
 }
 
 pub fn functions() -> Vec<Arc<ScalarUDF>> {
@@ -204,5 +211,6 @@ pub fn functions() -> Vec<Arc<ScalarUDF>> {
         unix_micros(),
         unix_millis(),
         unix_seconds(),
+        dayname(),
     ]
 }
