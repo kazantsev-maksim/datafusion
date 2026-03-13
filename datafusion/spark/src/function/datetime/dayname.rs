@@ -23,7 +23,7 @@ use datafusion::logical_expr::{
 };
 use datafusion_common::types::{NativeType, logical_date, logical_string};
 use datafusion_common::utils::take_function_args;
-use datafusion_common::{Result, ScalarValue, exec_datafusion_err, internal_err};
+use datafusion_common::{Result, ScalarValue, internal_err};
 use datafusion_expr::{ReturnFieldArgs, ScalarFunctionArgs, ScalarUDFImpl};
 use std::any::Any;
 use std::sync::Arc;
