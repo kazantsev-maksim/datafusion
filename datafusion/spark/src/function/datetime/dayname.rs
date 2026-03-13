@@ -18,9 +18,12 @@
 use arrow::array::{ArrayRef, AsArray, StringArray};
 use arrow::datatypes::{DataType, Date32Type, Field, FieldRef};
 use chrono::Datelike;
-use datafusion::logical_expr::{ColumnarValue, Signature, Volatility};
+use datafusion::logical_expr::{
+    Coercion, ColumnarValue, Signature, TypeSignatureClass, Volatility,
+};
+use datafusion_common::types::{NativeType, logical_date, logical_string};
 use datafusion_common::utils::take_function_args;
-use datafusion_common::{Result, ScalarValue, internal_err};
+use datafusion_common::{Result, ScalarValue, exec_datafusion_err, internal_err};
 use datafusion_expr::{ReturnFieldArgs, ScalarFunctionArgs, ScalarUDFImpl};
 use std::any::Any;
 use std::sync::Arc;
@@ -39,7 +42,17 @@ impl Default for SparkDayName {
 impl SparkDayName {
     pub fn new() -> Self {
         Self {
-            signature: Signature::exact(vec![DataType::Date32], Volatility::Immutable),
+            signature: Signature::coercible(
+                vec![Coercion::new_implicit(
+                    TypeSignatureClass::Native(logical_date()),
+                    vec![
+                        TypeSignatureClass::Native(logical_string()),
+                        TypeSignatureClass::Timestamp,
+                    ],
+                    NativeType::Date,
+                )],
+                Volatility::Immutable,
+            ),
         }
     }
 }
@@ -74,8 +87,8 @@ impl ScalarUDFImpl for SparkDayName {
         match arg {
             ColumnarValue::Scalar(ScalarValue::Date32(days)) => {
                 if let Some(days) = days {
-                    Ok(ColumnarValue::Scalar(ScalarValue::Utf8(Some(
-                        spark_day_name(days),
+                    Ok(ColumnarValue::Scalar(ScalarValue::Utf8(spark_day_name(
+                        days,
                     ))))
                 } else {
                     Ok(ColumnarValue::Scalar(ScalarValue::Utf8(None)))
@@ -87,7 +100,7 @@ impl ScalarUDFImpl for SparkDayName {
                         let result: StringArray = array
                             .as_primitive::<Date32Type>()
                             .iter()
-                            .map(|x| x.map(spark_day_name))
+                            .map(|x| x.and_then(spark_day_name))
                             .collect();
                         Ok(Arc::new(result) as ArrayRef)
                     }
@@ -106,10 +119,10 @@ impl ScalarUDFImpl for SparkDayName {
     }
 }
 
-fn spark_day_name(days: i32) -> String {
-    let weekday = Date32Type::to_naive_date_opt(days).unwrap().weekday();
-    let display_name = get_display_name(weekday.num_days_from_monday());
-    display_name.unwrap()
+fn spark_day_name(days: i32) -> Option<String> {
+    Date32Type::to_naive_date_opt(days).and_then(|native_date| {
+        get_display_name(native_date.weekday().num_days_from_monday())
+    })
 }
 
 fn get_display_name(day: u32) -> Option<String> {
