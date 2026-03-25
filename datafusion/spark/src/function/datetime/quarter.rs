@@ -15,13 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use arrow::array::{ArrayRef, AsArray, Int32Array};
-use arrow::datatypes::{DataType, Date32Type, Field, FieldRef};
-use chrono::Datelike;
+use arrow::array::ArrayRef;
+use arrow::compute::{DatePart, date_part};
+use arrow::datatypes::{DataType, Field, FieldRef};
 use datafusion::logical_expr::{ColumnarValue, Signature, Volatility};
 use datafusion_common::utils::take_function_args;
-use datafusion_common::{Result, ScalarValue, internal_err};
+use datafusion_common::{Result, internal_err};
 use datafusion_expr::{ReturnFieldArgs, ScalarFunctionArgs, ScalarUDFImpl};
+use datafusion_functions::utils::make_scalar_function;
 use std::any::Any;
 use std::sync::Arc;
 
@@ -70,42 +71,12 @@ impl ScalarUDFImpl for SparkQuarter {
     }
 
     fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
-        let [arg] = take_function_args("quarter", args.args)?;
-        match arg {
-            ColumnarValue::Scalar(ScalarValue::Date32(days)) => {
-                if let Some(days) = days {
-                    Ok(ColumnarValue::Scalar(ScalarValue::Int32(Some(
-                        spark_quarter(days)?,
-                    ))))
-                } else {
-                    Ok(ColumnarValue::Scalar(ScalarValue::Int32(None)))
-                }
-            }
-            ColumnarValue::Array(array) => {
-                let result = match array.data_type() {
-                    DataType::Date32 => {
-                        let result: Int32Array = array
-                            .as_primitive::<Date32Type>()
-                            .try_unary(spark_quarter)?
-                            .with_data_type(DataType::Int32);
-                        Ok(Arc::new(result) as ArrayRef)
-                    }
-                    other => {
-                        internal_err!(
-                            "Unsupported data type {other:?} for Spark function `quarter`"
-                        )
-                    }
-                }?;
-                Ok(ColumnarValue::Array(result))
-            }
-            other => {
-                internal_err!("Unsupported arg {other:?} for Spark function `quarter")
-            }
-        }
+        make_scalar_function(spark_quarter, vec![])(&args.args)
     }
 }
 
-fn spark_quarter(days: i32) -> Result<i32> {
-    let quarter = Date32Type::to_naive_date_opt(days).unwrap().quarter();
-    Ok(quarter as i32)
+fn spark_quarter(args: &[ArrayRef]) -> Result<ArrayRef> {
+    let [arg] = take_function_args("quarter", args)?;
+    let quarter = date_part(arg, DatePart::Quarter)?;
+    Ok(quarter)
 }
