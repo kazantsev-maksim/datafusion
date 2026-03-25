@@ -19,9 +19,9 @@ use arrow::array::{ArrayRef, AsArray, StringArray};
 use arrow::datatypes::{DataType, Date32Type, Field, FieldRef};
 use chrono::Datelike;
 use datafusion::logical_expr::{
-    Coercion, ColumnarValue, Signature, TypeSignatureClass, Volatility,
+    Coercion, ColumnarValue, Signature, TypeSignature, TypeSignatureClass, Volatility,
 };
-use datafusion_common::types::{NativeType, logical_date, logical_string};
+use datafusion_common::types::{logical_date, logical_string};
 use datafusion_common::utils::take_function_args;
 use datafusion_common::{Result, ScalarValue, internal_err};
 use datafusion_expr::{ReturnFieldArgs, ScalarFunctionArgs, ScalarUDFImpl};
@@ -42,15 +42,17 @@ impl Default for SparkDayName {
 impl SparkDayName {
     pub fn new() -> Self {
         Self {
-            signature: Signature::coercible(
-                vec![Coercion::new_implicit(
-                    TypeSignatureClass::Native(logical_date()),
-                    vec![
-                        TypeSignatureClass::Native(logical_string()),
-                        TypeSignatureClass::Timestamp,
-                    ],
-                    NativeType::Date,
-                )],
+            signature: Signature::one_of(
+                vec![
+                    TypeSignature::Coercible(vec![
+                        Coercion::new_exact(TypeSignatureClass::Native(logical_string())),
+                        Coercion::new_exact(TypeSignatureClass::Timestamp),
+                    ]),
+                    TypeSignature::Coercible(vec![
+                        Coercion::new_exact(TypeSignatureClass::Native(logical_string())),
+                        Coercion::new_exact(TypeSignatureClass::Native(logical_date())),
+                    ]),
+                ],
                 Volatility::Immutable,
             ),
         }
