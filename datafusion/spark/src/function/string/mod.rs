@@ -26,6 +26,7 @@ pub mod length;
 pub mod like;
 pub mod luhn_check;
 pub mod make_valid_utf8;
+pub mod soundex;
 pub mod space;
 pub mod substring;
 
@@ -46,6 +47,7 @@ make_udf_function!(format_string::FormatStringFunc, format_string);
 make_udf_function!(space::SparkSpace, space);
 make_udf_function!(substring::SparkSubstring, substring);
 make_udf_function!(base64::SparkUnBase64, unbase64);
+make_udf_function!(soundex::SparkSoundex, soundex);
 make_udf_function!(make_valid_utf8::SparkMakeValidUtf8, make_valid_utf8);
 
 pub mod expr_fn {
@@ -112,6 +114,7 @@ pub mod expr_fn {
         "Decodes the input string `str` from a base64 string into binary data.",
         str
     ));
+    export_functions!((soundex, "Returns Soundex code of the string.", str));
     export_functions!((
         make_valid_utf8,
         "Returns the original string if str is a valid UTF-8 string, otherwise returns a new string whose invalid UTF8 byte sequences are replaced using the UNICODE replacement character U+FFFD.",
@@ -134,6 +137,7 @@ pub fn functions() -> Vec<Arc<ScalarUDF>> {
         space(),
         substring(),
         unbase64(),
+        soundex(),
         make_valid_utf8(),
     ]
 }
