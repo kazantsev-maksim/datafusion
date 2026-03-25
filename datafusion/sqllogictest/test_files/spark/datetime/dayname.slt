@@ -61,6 +61,11 @@ SELECT dayname('2010-04-24'::STRING);
 Sat
 
 query T
+SELECT dayname(''::STRING);
+----
+NULL
+
+query T
 SELECT dayname('2010-04-24'::TIMESTAMP);
 ----
 Sat
