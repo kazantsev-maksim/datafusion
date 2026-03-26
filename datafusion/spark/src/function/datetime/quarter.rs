@@ -43,6 +43,8 @@ impl SparkQuarter {
             signature: Signature::one_of(
                 vec![
                     TypeSignature::Exact(vec![DataType::Utf8]),
+                    TypeSignature::Exact(vec![DataType::Utf8View]),
+                    TypeSignature::Exact(vec![DataType::LargeUtf8]),
                     TypeSignature::Exact(vec![DataType::Date32]),
                     TypeSignature::Exact(vec![DataType::Timestamp(
                         TimeUnit::Millisecond,
@@ -92,7 +94,7 @@ fn spark_quarter(args: &[ArrayRef]) -> Result<ArrayRef> {
             let quarter = date_part(array, DatePart::Quarter)?;
             Ok(quarter)
         }
-        DataType::Utf8 => {
+        DataType::Utf8 | DataType::Utf8View | DataType::LargeUtf8 => {
             let date_array =
                 cast_with_options(array, &DataType::Date32, &CastOptions::default())?;
             let quarter = date_part(&date_array, DatePart::Quarter)?;
@@ -103,3 +105,5 @@ fn spark_quarter(args: &[ArrayRef]) -> Result<ArrayRef> {
         }
     }
 }
+
+
