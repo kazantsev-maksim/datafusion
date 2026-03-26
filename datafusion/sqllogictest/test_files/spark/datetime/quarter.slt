@@ -49,3 +49,9 @@ query I
 SELECT quarter(NULL::DATE);
 ----
 NULL
+
+query I
+SELECT quarter('2009-01-12'::STRING);
+----
+1
+

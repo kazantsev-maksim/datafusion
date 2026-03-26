@@ -18,7 +18,7 @@
 use arrow::array::ArrayRef;
 use arrow::compute::{DatePart, date_part};
 use arrow::datatypes::{DataType, Field, FieldRef};
-use datafusion::logical_expr::{ColumnarValue, Signature, Volatility};
+use datafusion::logical_expr::{ColumnarValue, Signature, TypeSignature, Volatility};
 use datafusion_common::utils::take_function_args;
 use datafusion_common::{Result, internal_err};
 use datafusion_expr::{ReturnFieldArgs, ScalarFunctionArgs, ScalarUDFImpl};
@@ -40,7 +40,13 @@ impl Default for SparkQuarter {
 impl SparkQuarter {
     pub fn new() -> Self {
         Self {
-            signature: Signature::exact(vec![DataType::Date32], Volatility::Immutable),
+            signature: Signature::one_of(
+                vec![
+                    TypeSignature::Exact(vec![DataType::Utf8]),
+                    TypeSignature::Exact(vec![DataType::Date32]),
+                ],
+                Volatility::Immutable,
+            ),
         }
     }
 }
