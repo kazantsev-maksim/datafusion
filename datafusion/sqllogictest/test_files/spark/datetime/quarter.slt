@@ -59,3 +59,13 @@ query I
 SELECT quarter('2009-01-12'::string);
 ----
 1
+
+query I
+SELECT quarter('abc'::string);
+----
+NULL
+
+query I
+SELECT quarter(''::string);
+----
+NULL
