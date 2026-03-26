@@ -28,8 +28,7 @@ use arrow::datatypes::{DataType, Field};
 use datafusion_common::utils::ListCoercion;
 use datafusion_common::{DataFusionError, Result, not_impl_err};
 
-use std::any::Any;
-use std::fmt::Write;
+use std::fmt::{self, Write};
 
 use crate::utils::make_scalar_function;
 use arrow::array::{
@@ -48,8 +47,8 @@ use datafusion_common::exec_err;
 use datafusion_common::types::logical_string;
 use datafusion_expr::{
     ArrayFunctionArgument, ArrayFunctionSignature, Coercion, ColumnarValue,
-    Documentation, ScalarUDFImpl, Signature, TypeSignature, TypeSignatureClass,
-    Volatility,
+    Documentation, ScalarFunctionArgs, ScalarUDFImpl, Signature, TypeSignature,
+    TypeSignatureClass, Volatility,
 };
 use datafusion_functions::downcast_arg;
 use datafusion_macros::user_doc;
@@ -131,10 +130,6 @@ impl ArrayToString {
 }
 
 impl ScalarUDFImpl for ArrayToString {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn name(&self) -> &str {
         "array_to_string"
     }
@@ -147,10 +142,7 @@ impl ScalarUDFImpl for ArrayToString {
         Ok(Utf8)
     }
 
-    fn invoke_with_args(
-        &self,
-        args: datafusion_expr::ScalarFunctionArgs,
-    ) -> Result<ColumnarValue> {
+    fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
         make_scalar_function(array_to_string_inner)(&args.args)
     }
 
@@ -225,10 +217,6 @@ impl StringToArray {
 }
 
 impl ScalarUDFImpl for StringToArray {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn name(&self) -> &str {
         "string_to_array"
     }
@@ -244,10 +232,7 @@ impl ScalarUDFImpl for StringToArray {
         ))))
     }
 
-    fn invoke_with_args(
-        &self,
-        args: datafusion_expr::ScalarFunctionArgs,
-    ) -> Result<ColumnarValue> {
+    fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
         let args = &args.args;
         match args[0].data_type() {
             Utf8 | Utf8View => make_scalar_function(string_to_array_inner::<i32>)(args),
@@ -324,7 +309,6 @@ fn generate_string_array<O: OffsetSizeTrait>(
     null_strings: &[Option<&str>],
 ) -> Result<StringArray> {
     let mut builder = StringBuilder::with_capacity(list_arr.len(), 0);
-    let mut buf = String::new();
 
     for ((arr, &delimiter), &null_string) in list_arr
         .iter()
@@ -336,17 +320,16 @@ fn generate_string_array<O: OffsetSizeTrait>(
             continue;
         };
 
-        buf.clear();
         let mut first = true;
-        compute_array_to_string(&mut buf, &arr, delimiter, null_string, &mut first)?;
-        builder.append_value(&buf);
+        compute_array_to_string(&mut builder, &arr, delimiter, null_string, &mut first)?;
+        builder.append_value("");
     }
 
     Ok(builder.finish())
 }
 
 fn compute_array_to_string(
-    buf: &mut String,
+    w: &mut impl Write,
     arr: &ArrayRef,
     delimiter: &str,
     null_string: Option<&str>,
@@ -358,7 +341,7 @@ fn compute_array_to_string(
             for i in 0..$list_array.len() {
                 if !$list_array.is_null(i) {
                     compute_array_to_string(
-                        buf,
+                        w,
                         &$list_array.value(i),
                         delimiter,
                         null_string,
@@ -368,9 +351,9 @@ fn compute_array_to_string(
                     if *first {
                         *first = false;
                     } else {
-                        buf.push_str(delimiter);
+                        w.write_str(delimiter)?;
                     }
-                    buf.push_str(ns);
+                    w.write_str(ns)?;
                 }
             }
         };
@@ -399,71 +382,69 @@ fn compute_array_to_string(
                 DataFusionError::from(e)
                     .context("Casting dictionary to values in compute_array_to_string")
             })?;
-            compute_array_to_string(buf, &values, delimiter, null_string, first)
+            compute_array_to_string(w, &values, delimiter, null_string, first)
         }
         Null => Ok(()),
         data_type => {
             macro_rules! str_leaf {
                 ($ARRAY_TYPE:ident) => {
                     write_leaf_to_string(
-                        buf,
+                        w,
                         downcast_arg!(arr, $ARRAY_TYPE),
                         delimiter,
                         null_string,
                         first,
-                        |buf, x: &str| buf.push_str(x),
-                    )
+                        |w, x: &str| w.write_str(x),
+                    )?
                 };
             }
             macro_rules! bool_leaf {
                 ($ARRAY_TYPE:ident) => {
                     write_leaf_to_string(
-                        buf,
+                        w,
                         downcast_arg!(arr, $ARRAY_TYPE),
                         delimiter,
                         null_string,
                         first,
-                        |buf, x: bool| {
+                        |w, x: bool| {
                             if x {
-                                buf.push_str("true");
+                                w.write_str("true")
                             } else {
-                                buf.push_str("false");
+                                w.write_str("false")
                             }
                         },
-                    )
+                    )?
                 };
             }
             macro_rules! int_leaf {
                 ($ARRAY_TYPE:ident) => {
                     write_leaf_to_string(
-                        buf,
+                        w,
                         downcast_arg!(arr, $ARRAY_TYPE),
                         delimiter,
                         null_string,
                         first,
-                        |buf, x| {
+                        |w, x| {
                             let mut itoa_buf = itoa::Buffer::new();
-                            buf.push_str(itoa_buf.format(x));
+                            w.write_str(itoa_buf.format(x))
                         },
-                    )
+                    )?
                 };
             }
             macro_rules! float_leaf {
                 ($ARRAY_TYPE:ident) => {
                     write_leaf_to_string(
-                        buf,
+                        w,
                         downcast_arg!(arr, $ARRAY_TYPE),
                         delimiter,
                         null_string,
                         first,
-                        |buf, x| {
-                            // TODO: Consider switching to a more efficient
-                            // floating point display library (e.g., ryu). This
-                            // might result in some differences in the output
-                            // format, however.
-                            write!(buf, "{}", x).unwrap();
-                        },
-                    )
+                        // TODO: Consider switching to a more efficient
+                        // floating point display library (e.g., ryu). This
+                        // might result in some differences in the output
+                        // format, however.
+                        |w, x| write!(w, "{}", x),
+                    )?
                 };
             }
             match data_type {
@@ -487,7 +468,7 @@ fn compute_array_to_string(
                             .context("Casting to string in array_to_string")
                     })?;
                     return compute_array_to_string(
-                        buf,
+                        w,
                         &str_arr,
                         delimiter,
                         null_string,
@@ -506,17 +487,18 @@ fn compute_array_to_string(
 }
 
 /// Appends the string representation of each element in a leaf (non-list)
-/// array to `buf`, separated by `delimiter`. Null elements are rendered
+/// array to `w`, separated by `delimiter`. Null elements are rendered
 /// using `null_string` if provided, or skipped otherwise. The `append`
-/// closure controls how each non-null element is written to the buffer.
-fn write_leaf_to_string<'a, A, T>(
-    buf: &mut String,
+/// closure controls how each non-null element is written.
+fn write_leaf_to_string<'a, W: Write, A, T>(
+    w: &mut W,
     arr: &'a A,
     delimiter: &str,
     null_string: Option<&str>,
     first: &mut bool,
-    append: impl Fn(&mut String, T),
-) where
+    append: impl Fn(&mut W, T) -> fmt::Result,
+) -> Result<()>
+where
     &'a A: IntoIterator<Item = Option<T>>,
 {
     for x in arr {
@@ -528,14 +510,15 @@ fn write_leaf_to_string<'a, A, T>(
         if *first {
             *first = false;
         } else {
-            buf.push_str(delimiter);
+            w.write_str(delimiter)?;
         }
 
         match x {
-            Some(x) => append(buf, x),
-            None => buf.push_str(null_string.unwrap()),
+            Some(x) => append(w, x)?,
+            None => w.write_str(null_string.unwrap())?,
         }
     }
+    Ok(())
 }
 
 /// String_to_array SQL function
@@ -735,31 +718,31 @@ where
     let mut list_builder = ListBuilder::new(string_builder);
 
     match null_value_array {
-        None => {
-            string_array.iter().zip(delimiter_array.iter()).for_each(
-                |(string, delimiter)| {
-                    match (string, delimiter) {
-                        (Some(string), Some("")) => {
-                            list_builder.values().append_value(string);
-                            list_builder.append(true);
-                        }
-                        (Some(string), Some(delimiter)) => {
-                            string.split(delimiter).for_each(|s| {
-                                list_builder.values().append_value(s);
-                            });
-                            list_builder.append(true);
-                        }
-                        (Some(string), None) => {
-                            string.chars().map(|c| c.to_string()).for_each(|c| {
-                                list_builder.values().append_value(c.as_str());
-                            });
-                            list_builder.append(true);
-                        }
-                        _ => list_builder.append(false), // null value
+        None => string_array.iter().zip(delimiter_array.iter()).for_each(
+            |(string, delimiter)| match (string, delimiter) {
+                (Some(string), Some("")) => {
+                    if !string.is_empty() {
+                        list_builder.values().append_value(string);
                     }
-                },
-            )
-        }
+                    list_builder.append(true);
+                }
+                (Some(string), Some(delimiter)) => {
+                    if !string.is_empty() {
+                        string.split(delimiter).for_each(|s| {
+                            list_builder.values().append_value(s);
+                        });
+                    }
+                    list_builder.append(true);
+                }
+                (Some(string), None) => {
+                    string.chars().map(|c| c.to_string()).for_each(|c| {
+                        list_builder.values().append_value(c.as_str());
+                    });
+                    list_builder.append(true);
+                }
+                _ => list_builder.append(false),
+            },
+        ),
         Some(null_value_array) => string_array
             .iter()
             .zip(delimiter_array.iter())
@@ -767,21 +750,25 @@ where
             .for_each(|((string, delimiter), null_value)| {
                 match (string, delimiter) {
                     (Some(string), Some("")) => {
-                        if Some(string) == null_value {
-                            list_builder.values().append_null();
-                        } else {
-                            list_builder.values().append_value(string);
+                        if !string.is_empty() {
+                            if Some(string) == null_value {
+                                list_builder.values().append_null();
+                            } else {
+                                list_builder.values().append_value(string);
+                            }
                         }
                         list_builder.append(true);
                     }
                     (Some(string), Some(delimiter)) => {
-                        string.split(delimiter).for_each(|s| {
-                            if Some(s) == null_value {
-                                list_builder.values().append_null();
-                            } else {
-                                list_builder.values().append_value(s);
-                            }
-                        });
+                        if !string.is_empty() {
+                            string.split(delimiter).for_each(|s| {
+                                if Some(s) == null_value {
+                                    list_builder.values().append_null();
+                                } else {
+                                    list_builder.values().append_value(s);
+                                }
+                            });
+                        }
                         list_builder.append(true);
                     }
                     (Some(string), None) => {
