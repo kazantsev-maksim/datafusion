@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use arrow::array::ArrayRef;
+use arrow::array::{Array, ArrayRef};
 use arrow::compute::{DatePart, date_part};
 use arrow::datatypes::{DataType, Field, FieldRef};
 use datafusion::logical_expr::{ColumnarValue, Signature, TypeSignature, Volatility};
@@ -82,7 +82,14 @@ impl ScalarUDFImpl for SparkQuarter {
 }
 
 fn spark_quarter(args: &[ArrayRef]) -> Result<ArrayRef> {
-    let [arg] = take_function_args("quarter", args)?;
-    let quarter = date_part(arg, DatePart::Quarter)?;
-    Ok(quarter)
+    let [array] = take_function_args("quarter", args)?;
+    match array.data_type() {
+        DataType::Date32 | DataType::Timestamp(_, _) => {
+            let quarter = date_part(array, DatePart::Quarter)?;
+            Ok(quarter)
+        }
+        data_type => {
+            internal_err!("quarter does not support: {data_type}")
+        }
+    }
 }
