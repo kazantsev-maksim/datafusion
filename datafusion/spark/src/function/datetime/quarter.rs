@@ -105,5 +105,3 @@ fn spark_quarter(args: &[ArrayRef]) -> Result<ArrayRef> {
         }
     }
 }
-
-
