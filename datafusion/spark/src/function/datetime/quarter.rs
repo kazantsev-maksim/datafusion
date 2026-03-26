@@ -16,8 +16,8 @@
 // under the License.
 
 use arrow::array::{Array, ArrayRef};
-use arrow::compute::{DatePart, date_part};
-use arrow::datatypes::{DataType, Field, FieldRef};
+use arrow::compute::{CastOptions, DatePart, cast_with_options, date_part};
+use arrow::datatypes::{DataType, Field, FieldRef, TimeUnit};
 use datafusion::logical_expr::{ColumnarValue, Signature, TypeSignature, Volatility};
 use datafusion_common::utils::take_function_args;
 use datafusion_common::{Result, internal_err};
@@ -44,6 +44,10 @@ impl SparkQuarter {
                 vec![
                     TypeSignature::Exact(vec![DataType::Utf8]),
                     TypeSignature::Exact(vec![DataType::Date32]),
+                    TypeSignature::Exact(vec![DataType::Timestamp(
+                        TimeUnit::Millisecond,
+                        None,
+                    )]),
                 ],
                 Volatility::Immutable,
             ),
@@ -86,6 +90,12 @@ fn spark_quarter(args: &[ArrayRef]) -> Result<ArrayRef> {
     match array.data_type() {
         DataType::Date32 | DataType::Timestamp(_, _) => {
             let quarter = date_part(array, DatePart::Quarter)?;
+            Ok(quarter)
+        }
+        DataType::Utf8 => {
+            let date_array =
+                cast_with_options(array, &DataType::Date32, &CastOptions::default())?;
+            let quarter = date_part(&date_array, DatePart::Quarter)?;
             Ok(quarter)
         }
         data_type => {

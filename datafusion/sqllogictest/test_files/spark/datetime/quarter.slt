@@ -55,3 +55,7 @@ SELECT quarter('2009-01-12 10:00:00'::timestamp);
 ----
 1
 
+query I
+SELECT quarter('2009-01-12'::string);
+----
+1
