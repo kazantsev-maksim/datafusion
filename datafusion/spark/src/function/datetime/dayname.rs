@@ -17,7 +17,7 @@
 
 use arrow::array::{Array, ArrayRef, AsArray, StringArray};
 use arrow::compute::{CastOptions, DatePart, cast_with_options, date_part};
-use arrow::datatypes::{DataType, Field, FieldRef, Int8Type};
+use arrow::datatypes::{DataType, Field, FieldRef, Int32Type};
 use datafusion::logical_expr::{
     Coercion, ColumnarValue, Signature, TypeSignature, TypeSignatureClass, Volatility,
 };
@@ -103,14 +103,14 @@ fn spark_day_name(args: &[ArrayRef]) -> Result<ArrayRef> {
 
 fn spark_day_name_inner(array: &ArrayRef) -> Result<ArrayRef> {
     let result: StringArray = date_part(array, DatePart::DayOfWeekMonday0)?
-        .as_primitive::<Int8Type>()
+        .as_primitive::<Int32Type>()
         .iter()
         .map(|x| x.and_then(get_display_name))
         .collect();
     Ok(Arc::new(result))
 }
 
-fn get_display_name(day: i8) -> Option<String> {
+fn get_display_name(day: i32) -> Option<String> {
     match day {
         0 => Some(String::from("Mon")),
         1 => Some(String::from("Tue")),
