@@ -61,6 +61,11 @@ SELECT quarter('2009-01-12'::string);
 1
 
 query I
+SELECT quarter('2016-08-31');
+----
+3
+
+query I
 SELECT quarter('abc'::string);
 ----
 NULL

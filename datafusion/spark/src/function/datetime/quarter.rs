@@ -18,12 +18,13 @@
 use arrow::array::{Array, ArrayRef};
 use arrow::compute::{CastOptions, DatePart, cast_with_options, date_part};
 use arrow::datatypes::{DataType, Field, FieldRef, TimeUnit};
-use datafusion::logical_expr::{ColumnarValue, Signature, TypeSignature, Volatility};
+use datafusion::logical_expr::{Coercion, ColumnarValue, Signature, TypeSignature, TypeSignatureClass, Volatility};
 use datafusion_common::utils::take_function_args;
 use datafusion_common::{Result, internal_err};
 use datafusion_expr::{ReturnFieldArgs, ScalarFunctionArgs, ScalarUDFImpl};
 use datafusion_functions::utils::make_scalar_function;
 use std::sync::Arc;
+use datafusion_common::types::{logical_date, logical_string};
 
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct SparkQuarter {
@@ -41,14 +42,14 @@ impl SparkQuarter {
         Self {
             signature: Signature::one_of(
                 vec![
-                    TypeSignature::Exact(vec![DataType::Utf8]),
-                    TypeSignature::Exact(vec![DataType::Utf8View]),
-                    TypeSignature::Exact(vec![DataType::LargeUtf8]),
-                    TypeSignature::Exact(vec![DataType::Date32]),
-                    TypeSignature::Exact(vec![DataType::Timestamp(
-                        TimeUnit::Millisecond,
-                        None,
-                    )]),
+                    TypeSignature::Coercible(vec![
+                        Coercion::new_exact(TypeSignatureClass::Native(logical_string())),
+                        Coercion::new_exact(TypeSignatureClass::Timestamp),
+                    ]),
+                    TypeSignature::Coercible(vec![
+                        Coercion::new_exact(TypeSignatureClass::Native(logical_string())),
+                        Coercion::new_exact(TypeSignatureClass::Native(logical_date())),
+                    ]),
                 ],
                 Volatility::Immutable,
             ),
