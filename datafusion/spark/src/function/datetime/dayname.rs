@@ -62,10 +62,6 @@ impl SparkDayName {
 }
 
 impl ScalarUDFImpl for SparkDayName {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn name(&self) -> &str {
         "dayname"
     }
