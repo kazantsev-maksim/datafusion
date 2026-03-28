@@ -21,7 +21,7 @@ use arrow::datatypes::{DataType, Field, FieldRef};
 use datafusion::logical_expr::{
     Coercion, ColumnarValue, Signature, TypeSignature, TypeSignatureClass, Volatility,
 };
-use datafusion_common::types::logical_date;
+use datafusion_common::types::{logical_date, logical_string};
 use datafusion_common::utils::take_function_args;
 use datafusion_common::{Result, internal_err};
 use datafusion_expr::{ReturnFieldArgs, ScalarFunctionArgs, ScalarUDFImpl};
@@ -49,6 +49,9 @@ impl SparkQuarter {
                     )]),
                     TypeSignature::Coercible(vec![Coercion::new_exact(
                         TypeSignatureClass::Native(logical_date()),
+                    )]),
+                    TypeSignature::Coercible(vec![Coercion::new_exact(
+                        TypeSignatureClass::Native(logical_string()),
                     )]),
                 ],
                 Volatility::Immutable,
