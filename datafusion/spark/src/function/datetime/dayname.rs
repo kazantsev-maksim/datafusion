@@ -15,16 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use arrow::array::{ArrayRef, AsArray, StringArray};
-use arrow::datatypes::{DataType, Date32Type, Field, FieldRef};
-use chrono::Datelike;
+use arrow::array::{Array, ArrayRef, AsArray, StringArray};
+use arrow::compute::{CastOptions, DatePart, cast_with_options, date_part};
+use arrow::datatypes::{DataType, Field, FieldRef, Int8Type};
 use datafusion::logical_expr::{
-    Coercion, ColumnarValue, Signature, TypeSignatureClass, Volatility,
+    Coercion, ColumnarValue, Signature, TypeSignature, TypeSignatureClass, Volatility,
 };
-use datafusion_common::types::{NativeType, logical_date, logical_string};
+use datafusion_common::types::{logical_date, logical_string};
 use datafusion_common::utils::take_function_args;
-use datafusion_common::{Result, ScalarValue, internal_err};
+use datafusion_common::{Result, internal_err};
 use datafusion_expr::{ReturnFieldArgs, ScalarFunctionArgs, ScalarUDFImpl};
+use datafusion_functions::utils::make_scalar_function;
 use std::any::Any;
 use std::sync::Arc;
 
@@ -42,15 +43,18 @@ impl Default for SparkDayName {
 impl SparkDayName {
     pub fn new() -> Self {
         Self {
-            signature: Signature::coercible(
-                vec![Coercion::new_implicit(
-                    TypeSignatureClass::Native(logical_date()),
-                    vec![
-                        TypeSignatureClass::Native(logical_string()),
+            signature: Signature::one_of(
+                vec![
+                    TypeSignature::Coercible(vec![Coercion::new_exact(
                         TypeSignatureClass::Timestamp,
-                    ],
-                    NativeType::Date,
-                )],
+                    )]),
+                    TypeSignature::Coercible(vec![Coercion::new_exact(
+                        TypeSignatureClass::Native(logical_date()),
+                    )]),
+                    TypeSignature::Coercible(vec![Coercion::new_exact(
+                        TypeSignatureClass::Native(logical_string()),
+                    )]),
+                ],
                 Volatility::Immutable,
             ),
         }
@@ -83,49 +87,35 @@ impl ScalarUDFImpl for SparkDayName {
     }
 
     fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
-        let [arg] = take_function_args("dayname", args.args)?;
-        match arg {
-            ColumnarValue::Scalar(ScalarValue::Date32(days)) => {
-                if let Some(days) = days {
-                    Ok(ColumnarValue::Scalar(ScalarValue::Utf8(spark_day_name(
-                        days,
-                    ))))
-                } else {
-                    Ok(ColumnarValue::Scalar(ScalarValue::Utf8(None)))
-                }
-            }
-            ColumnarValue::Array(array) => {
-                let result = match array.data_type() {
-                    DataType::Date32 => {
-                        let result: StringArray = array
-                            .as_primitive::<Date32Type>()
-                            .iter()
-                            .map(|x| x.and_then(spark_day_name))
-                            .collect();
-                        Ok(Arc::new(result) as ArrayRef)
-                    }
-                    other => {
-                        internal_err!(
-                            "Unsupported data type {other:?} for Spark function `dayname`"
-                        )
-                    }
-                }?;
-                Ok(ColumnarValue::Array(result))
-            }
-            other => {
-                internal_err!("Unsupported arg {other:?} for Spark function `dayname`")
-            }
+        make_scalar_function(spark_day_name, vec![])(&args.args)
+    }
+}
+
+fn spark_day_name(args: &[ArrayRef]) -> Result<ArrayRef> {
+    let [array] = take_function_args("dayname", args)?;
+    match array.data_type() {
+        DataType::Date32 | DataType::Timestamp(_, _) => spark_day_name_inner(array),
+        DataType::Utf8 | DataType::Utf8View | DataType::LargeUtf8 => {
+            let date_array =
+                cast_with_options(array, &DataType::Date32, &CastOptions::default())?;
+            spark_day_name_inner(&date_array)
+        }
+        other => {
+            internal_err!("Unsupported arg {other:?} for Spark function `dayname`")
         }
     }
 }
 
-fn spark_day_name(days: i32) -> Option<String> {
-    Date32Type::to_naive_date_opt(days).and_then(|native_date| {
-        get_display_name(native_date.weekday().num_days_from_monday())
-    })
+fn spark_day_name_inner(array: &ArrayRef) -> Result<ArrayRef> {
+    let result: StringArray = date_part(array, DatePart::DayOfWeekMonday0)?
+        .as_primitive::<Int8Type>()
+        .iter()
+        .map(|x| x.and_then(get_display_name))
+        .collect();
+    Ok(Arc::new(result))
 }
 
-fn get_display_name(day: u32) -> Option<String> {
+fn get_display_name(day: i8) -> Option<String> {
     match day {
         0 => Some(String::from("Mon")),
         1 => Some(String::from("Tue")),
