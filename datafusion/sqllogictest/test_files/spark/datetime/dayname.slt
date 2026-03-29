@@ -74,3 +74,8 @@ query T
 SELECT dayname('2010-04-24'::TIMESTAMP);
 ----
 Sat
+
+query T
+SELECT dayname(NULL::TIMESTAMP);
+----
+NULL
