@@ -24,3 +24,8 @@ query T
 SELECT make_valid_utf8('Spark'::string);
 ----
 Spark
+
+query T
+SELECT make_valid_utf8('61'::bytea);
+----
+a
