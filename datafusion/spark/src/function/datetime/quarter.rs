@@ -18,13 +18,13 @@
 use arrow::array::{Array, ArrayRef};
 use arrow::compute::{CastOptions, DatePart, cast_with_options, date_part};
 use arrow::datatypes::{DataType, Field, FieldRef};
-use datafusion::logical_expr::{
-    Coercion, ColumnarValue, Signature, TypeSignature, TypeSignatureClass, Volatility,
-};
 use datafusion_common::types::{logical_date, logical_string};
 use datafusion_common::utils::take_function_args;
 use datafusion_common::{Result, internal_err};
-use datafusion_expr::{ReturnFieldArgs, ScalarFunctionArgs, ScalarUDFImpl};
+use datafusion_expr::{
+    Coercion, ColumnarValue, Expr, ReturnFieldArgs, ScalarFunctionArgs, ScalarUDFImpl,
+    Signature, TypeSignature, TypeSignatureClass, Volatility,
+};
 use datafusion_functions::utils::make_scalar_function;
 use std::sync::Arc;
 
@@ -74,11 +74,7 @@ impl ScalarUDFImpl for SparkQuarter {
     }
 
     fn return_field_from_args(&self, args: ReturnFieldArgs) -> Result<FieldRef> {
-        Ok(Arc::new(Field::new(
-            self.name(),
-            DataType::Int32,
-            args.arg_fields[0].is_nullable(),
-        )))
+        Ok(Arc::new(Field::new(self.name(), DataType::Int32, true)))
     }
 
     fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
