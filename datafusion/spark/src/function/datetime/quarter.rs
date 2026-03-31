@@ -22,7 +22,7 @@ use datafusion_common::types::{logical_date, logical_string};
 use datafusion_common::utils::take_function_args;
 use datafusion_common::{Result, internal_err};
 use datafusion_expr::{
-    Coercion, ColumnarValue, Expr, ReturnFieldArgs, ScalarFunctionArgs, ScalarUDFImpl,
+    Coercion, ColumnarValue, ReturnFieldArgs, ScalarFunctionArgs, ScalarUDFImpl,
     Signature, TypeSignature, TypeSignatureClass, Volatility,
 };
 use datafusion_functions::utils::make_scalar_function;
