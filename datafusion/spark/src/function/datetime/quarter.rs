@@ -73,7 +73,7 @@ impl ScalarUDFImpl for SparkQuarter {
         internal_err!("return_field_from_args should be used instead")
     }
 
-    fn return_field_from_args(&self, args: ReturnFieldArgs) -> Result<FieldRef> {
+    fn return_field_from_args(&self, _args: ReturnFieldArgs) -> Result<FieldRef> {
         Ok(Arc::new(Field::new(self.name(), DataType::Int32, true)))
     }
 
