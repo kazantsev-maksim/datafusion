@@ -110,6 +110,8 @@ fn spark_day_name_inner(array: &ArrayRef) -> Result<ArrayRef> {
     Ok(Arc::new(result))
 }
 
+/// This function supports only the English locale, matching the behavior of Spark's
+/// `dayname` function which return English day names regardless of the system or session locale.
 fn get_display_name(day: i32) -> Option<String> {
     match day {
         0 => Some(String::from("Mon")),
